@@ -31,6 +31,7 @@ def test_create_movement(client, auth_header):
     assert data["amount"] == 50.0
     assert data["description"] == "Lunch"
     assert data["movement_category_id"] == cat_id
+    assert data["category_name"] == "Default"
 
 
 def test_list_movements(client):
@@ -50,6 +51,7 @@ def test_list_movements(client):
     mock_mov.amount = 1000.0
     mock_mov.description = None
     mock_mov.created_at = now
+    mock_mov.category_name = "Default"
 
     with patch("app.crud.movement.movement_crud.count_user_movements", return_value=1), \
          patch("app.crud.movement.movement_crud.get_by_user", return_value=[mock_mov]):
@@ -87,6 +89,7 @@ def test_list_movements_pagination(client):
         m.amount = float(i + 1)
         m.description = None
         m.created_at = now
+        m.category_name = "Default"
         mock_movements.append(m)
 
     page_size = 5
@@ -116,6 +119,102 @@ def test_list_movements_pagination(client):
         assert d2["total_pages"] == 2
         assert d2["has_next"] is False
         assert d2["has_prev"] is True
+
+
+def _override_current_user_mock(client, user_id=1):
+    from app.api.deps import get_current_user
+    from app.model.user import User
+
+    client.app.dependency_overrides[get_current_user] = lambda: User(
+        id=user_id, email="test@test.com", username="test", pwd_hash="xxx"
+    )
+
+
+def _make_mock_movement(id=1, type="expense", amount=50.0, description=None, category_id=1, category_name="Default", created_at=None):
+    if created_at is None:
+        created_at = datetime.now()
+    m = MagicMock()
+    m.id = id
+    m.movement_category_id = category_id
+    m.type = type
+    m.amount = amount
+    m.description = description
+    m.created_at = created_at
+    m.category_name = category_name
+    return m
+
+
+def test_list_movements_filter_by_type(client):
+    _override_current_user_mock(client)
+
+    mock_mov = _make_mock_movement(type="expense")
+
+    with patch("app.crud.movement.movement_crud.count_user_movements", return_value=1), \
+         patch("app.crud.movement.movement_crud.get_by_user", return_value=[mock_mov]):
+        resp = client.get("/movements/?type=expense")
+
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["type"] == "expense"
+
+
+def test_list_movements_filter_by_category(client):
+    _override_current_user_mock(client)
+
+    mock_mov = _make_mock_movement(category_id=5, category_name="Bills")
+
+    with patch("app.crud.movement.movement_crud.count_user_movements", return_value=1), \
+         patch("app.crud.movement.movement_crud.get_by_user", return_value=[mock_mov]):
+        resp = client.get("/movements/?category_id=5")
+
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["movement_category_id"] == 5
+    assert data["items"][0]["category_name"] == "Bills"
+
+
+def test_list_movements_filter_by_date_range(client):
+    _override_current_user_mock(client)
+
+    mock_mov = _make_mock_movement()
+
+    with patch("app.crud.movement.movement_crud.count_user_movements", return_value=1), \
+         patch("app.crud.movement.movement_crud.get_by_user", return_value=[mock_mov]):
+        resp = client.get("/movements/?date_from=2024-01-01&date_to=2024-12-31")
+
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.json()["total"] == 1
+
+
+def test_list_movements_filter_no_results(client):
+    _override_current_user_mock(client)
+
+    with patch("app.crud.movement.movement_crud.count_user_movements", return_value=0):
+        resp = client.get("/movements/?type=income&category_id=999")
+
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total"] == 0
+    assert data["items"] == []
+    assert data["total_pages"] == 0
+
+
+def test_list_movements_category_name_in_response(client, auth_header):
+    cat_id = _create_category(client, auth_header, name="Groceries")
+    create = client.post(
+        "/movements/",
+        json={"type": "expense", "amount": 30.0, "movement_category_id": cat_id},
+        headers=auth_header,
+    )
+    mov_id = create.json()["id"]
+    assert create.json()["category_name"] == "Groceries"
+
+    resp = client.get("/movements/", headers=auth_header)
+    assert resp.status_code == status.HTTP_200_OK
+    item = next(i for i in resp.json()["items"] if i["id"] == mov_id)
+    assert item["category_name"] == "Groceries"
 
 
 def test_get_movement(client, auth_header):
