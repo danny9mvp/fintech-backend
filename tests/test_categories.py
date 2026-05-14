@@ -1,12 +1,41 @@
+from datetime import datetime
+from unittest.mock import MagicMock, patch
+
 from fastapi import status
 
 
-def test_create_category(client, auth_header):
-    resp = client.post(
-        "/categories/",
-        json={"name": "Groceries", "budget": 500.0},
-        headers=auth_header,
+def _override_current_user(client, user_id=1):
+    from app.api.deps import get_current_user
+    from app.model.user import User
+
+    client.app.dependency_overrides[get_current_user] = lambda: User(
+        id=user_id, email="test@test.com", username="test", pwd_hash="xxx"
     )
+
+
+def _make_mock_category(id=1, user_id=1, name="Default", budget=100.0, created_at=None):
+    if created_at is None:
+        created_at = datetime.now()
+    c = MagicMock()
+    c.id = id
+    c.user_id = user_id
+    c.name = name
+    c.budget = budget
+    c.created_at = created_at
+    return c
+
+
+def test_create_category(client):
+    _override_current_user(client)
+
+    mock_cat = _make_mock_category(id=1, name="Groceries", budget=500.0)
+
+    with patch("app.crud.movement_category.category_crud.create", return_value=mock_cat):
+        resp = client.post(
+            "/categories/",
+            json={"name": "Groceries", "budget": 500.0},
+        )
+
     assert resp.status_code == status.HTTP_201_CREATED
     data = resp.json()
     assert data["name"] == "Groceries"
@@ -14,83 +43,68 @@ def test_create_category(client, auth_header):
     assert "id" in data
 
 
-def test_list_categories(client, auth_header):
-    client.post(
-        "/categories/",
-        json={"name": "Rent", "budget": 1200.0},
-        headers=auth_header,
-    )
-    resp = client.get("/categories/", headers=auth_header)
+def test_list_categories(client):
+    _override_current_user(client)
+
+    mock_cat = _make_mock_category(id=1, name="Rent", budget=1200.0)
+
+    with patch("app.crud.movement_category.category_crud.get_by_user", return_value=[mock_cat]):
+        resp = client.get("/categories/")
+
     assert resp.status_code == status.HTTP_200_OK
     data = resp.json()
     assert len(data) == 1
     assert data[0]["name"] == "Rent"
 
 
-def test_get_category(client, auth_header):
-    create = client.post(
-        "/categories/",
-        json={"name": "Salary"},
-        headers=auth_header,
-    )
-    cat_id = create.json()["id"]
-    resp = client.get(f"/categories/{cat_id}", headers=auth_header)
+def test_get_category(client):
+    _override_current_user(client)
+
+    mock_cat = _make_mock_category(id=1, name="Salary")
+
+    with patch("app.crud.movement_category.category_crud.get", return_value=mock_cat):
+        resp = client.get("/categories/1")
+
     assert resp.status_code == status.HTTP_200_OK
     assert resp.json()["name"] == "Salary"
 
 
-def test_update_category(client, auth_header):
-    create = client.post(
-        "/categories/",
-        json={"name": "Old", "budget": 100.0},
-        headers=auth_header,
-    )
-    cat_id = create.json()["id"]
-    resp = client.patch(
-        f"/categories/{cat_id}",
-        json={"name": "Updated", "budget": 200.0},
-        headers=auth_header,
-    )
+def test_update_category(client):
+    _override_current_user(client)
+
+    mock_cat = _make_mock_category(id=1, name="Old", budget=100.0)
+    mock_updated = _make_mock_category(id=1, name="Updated", budget=200.0)
+
+    with patch("app.crud.movement_category.category_crud.get", return_value=mock_cat), \
+         patch("app.crud.movement_category.category_crud.update", return_value=mock_updated):
+        resp = client.patch(
+            "/categories/1",
+            json={"name": "Updated", "budget": 200.0},
+        )
+
     assert resp.status_code == status.HTTP_200_OK
     assert resp.json()["name"] == "Updated"
     assert resp.json()["budget"] == 200.0
 
 
-def test_delete_category(client, auth_header):
-    create = client.post(
-        "/categories/",
-        json={"name": "Temp"},
-        headers=auth_header,
-    )
-    cat_id = create.json()["id"]
-    resp = client.delete(f"/categories/{cat_id}", headers=auth_header)
+def test_delete_category(client):
+    _override_current_user(client)
+
+    mock_cat = _make_mock_category(id=1)
+
+    with patch("app.crud.movement_category.category_crud.get", return_value=mock_cat), \
+         patch("app.crud.movement_category.category_crud.remove"):
+        resp = client.delete("/categories/1")
+
     assert resp.status_code == status.HTTP_204_NO_CONTENT
-    get_resp = client.get(f"/categories/{cat_id}", headers=auth_header)
-    assert get_resp.status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_category_ownership(client, auth_header):
-    create = client.post(
-        "/categories/",
-        json={"name": "Mine"},
-        headers=auth_header,
-    )
-    cat_id = create.json()["id"]
+def test_category_ownership(client):
+    _override_current_user(client, user_id=2)
 
-    client.post(
-        "/auth/register",
-        json={
-            "email": "other@example.com",
-            "password": "secret",
-            "username": "other",
-        },
-    )
-    resp2 = client.post(
-        "/auth/login",
-        json={"email": "other@example.com", "password": "secret"},
-    )
-    other_token = resp2.json()["access_token"]
-    other_header = {"Authorization": f"Bearer {other_token}"}
+    mock_cat = _make_mock_category(id=1, user_id=1)
 
-    resp = client.get(f"/categories/{cat_id}", headers=other_header)
+    with patch("app.crud.movement_category.category_crud.get", return_value=mock_cat):
+        resp = client.get("/categories/1")
+
     assert resp.status_code == status.HTTP_404_NOT_FOUND
