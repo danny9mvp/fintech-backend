@@ -25,3 +25,7 @@ class Movement(Base):
 
     user: Mapped["User"] = relationship(back_populates="movements")
     category: Mapped["MovementCategory"] = relationship(back_populates="movements")
+
+    @property
+    def category_name(self) -> str | None:
+        return self.category.name if self.category else None

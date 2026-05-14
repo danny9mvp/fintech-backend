@@ -22,8 +22,8 @@ class MovementUpdate(BaseModel):
 
 class MovementResponse(MovementBase):
     id: int
-    user_id: int
     movement_category_id: int
+    category_name: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
