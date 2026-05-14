@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from math import ceil
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -7,18 +9,39 @@ from app.crud.movement import movement_crud
 from app.crud.movement_category import category_crud
 from app.model.user import User
 from app.schemas.movement import MovementCreate, MovementResponse, MovementUpdate
+from app.schemas.paginated import PaginatedResponse
 
 router = APIRouter(prefix="/movements", tags=["movements"])
 
 
-@router.get("/", response_model=list[MovementResponse])
+@router.get(
+    "/",
+    response_model=PaginatedResponse[MovementResponse],
+    response_model_exclude_none=True,
+)
 def list_movements(
-    skip: int = 0,
-    limit: int = 100,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return movement_crud.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
+    offset = (page - 1) * page_size
+    user_movements_count = movement_crud.count_user_movements(db, user_id=current_user.id)
+    user_movements = (
+        movement_crud.get_by_user(db, user_id=current_user.id, offset=offset, limit=page_size)
+    )
+
+    total_pages = ceil(user_movements_count / page_size)
+
+    return PaginatedResponse(
+        items=user_movements,
+        total=user_movements_count,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1
+    )
 
 
 @router.post("/", response_model=MovementResponse, status_code=status.HTTP_201_CREATED)

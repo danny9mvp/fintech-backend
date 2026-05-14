@@ -8,13 +8,17 @@ class CRUDMovement(CRUDBase):
     def __init__(self):
         super().__init__(Movement)
 
+    def count_user_movements(self, db: Session, user_id: int):
+        return db.query(Movement).filter(Movement.user_id == user_id).count()
+
     def get_by_user(
-        self, db: Session, user_id: int, skip: int = 0, limit: int = 100
+        self, db: Session, user_id: int, offset, limit
     ):
         return (
             db.query(Movement)
             .filter(Movement.user_id == user_id)
-            .offset(skip)
+            .order_by(Movement.created_at.desc())
+            .offset(offset)
             .limit(limit)
             .all()
         )
