@@ -16,12 +16,12 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 
 @router.get("/", response_model=list[CategoryResponse])
 def list_categories(
-    skip: int = 0,
+    offset: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return category_crud.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
+    return category_crud.get_by_user(db, user_id=current_user.id, offset=offset, limit=limit)
 
 
 @router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
