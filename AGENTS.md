@@ -16,9 +16,10 @@ Plain `requirements.txt`, no lockfile. Key packages: fastapi, sqlalchemy, alembi
 
 ## Database
 
-- SQLite by default (`app.db`). Set `DATABASE_URL` in `.env` to use PostgreSQL etc.
-- SQLAlchemy 2.x models in `app/models/`.
+- PostgreSQL by default. URL configured via `DATABASE_URL` in `.env`.
+- SQLAlchemy 2.x models in `app/model/`.
 - Alembic for migrations: `alembic revision --autogenerate -m "msg"` then `alembic upgrade head`.
+- Driver: `psycopg2-binary`.
 
 ## Project structure
 
@@ -26,7 +27,7 @@ Plain `requirements.txt`, no lockfile. Key packages: fastapi, sqlalchemy, alembi
 app/
   main.py          -- entrypoint, creates tables on import, registers routers
   core/            -- config, database (engine + Base + get_db), security (JWT + bcrypt)
-  models/          -- User, Movement, MovementCategory (SQLAlchemy)
+  model/           -- User, Movement, MovementCategory (SQLAlchemy)
   schemas/         -- Pydantic request/response models
   crud/            -- CRUDBase + per-entity CRUD classes
   api/             -- routers: auth, users, categories, movements (all require JWT except auth)
@@ -53,7 +54,7 @@ Ownership enforced at the API layer -- users can only see/edit their own resourc
 python -m pytest tests/ -v
 ```
 
-Uses a separate SQLite file (`test.db`) with `drop_all` between runs. Fixtures: `client`, `token`, `auth_header`.
+Uses a separate SQLite file (`test.db`) with `drop_all` between runs. Tests don't require PostgreSQL. Fixtures: `client`, `token`, `auth_header`.
 
 ## API endpoints
 
