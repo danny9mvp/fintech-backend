@@ -9,7 +9,7 @@ from app.crud.movement import movement_crud
 from app.crud.movement_category import category_crud
 from app.model.user import User
 from app.schemas.movement import MovementCreate, MovementResponse, MovementUpdate
-from schemas.paginated import PaginatedResponse
+from app.schemas.paginated import PaginatedResponse
 
 router = APIRouter(prefix="/movements", tags=["movements"])
 

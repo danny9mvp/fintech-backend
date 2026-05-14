@@ -1,3 +1,6 @@
+from datetime import datetime
+from unittest.mock import MagicMock, patch
+
 from fastapi import status
 
 
@@ -30,20 +33,89 @@ def test_create_movement(client, auth_header):
     assert data["movement_category_id"] == cat_id
 
 
-def test_list_movements(client, auth_header):
-    cat_id = _create_category(client, auth_header)
-    client.post(
-        "/movements/",
-        json={
-            "type": "income",
-            "amount": 1000.0,
-            "movement_category_id": cat_id,
-        },
-        headers=auth_header,
+def test_list_movements(client):
+    from app.api.deps import get_current_user
+    from app.model.user import User
+
+    client.app.dependency_overrides[get_current_user] = lambda: User(
+        id=1, email="test@test.com", username="test", pwd_hash="xxx"
     )
-    resp = client.get("/movements/", headers=auth_header)
+
+    now = datetime.now()
+    mock_mov = MagicMock()
+    mock_mov.id = 1
+    mock_mov.user_id = 1
+    mock_mov.movement_category_id = 1
+    mock_mov.type = "income"
+    mock_mov.amount = 1000.0
+    mock_mov.description = None
+    mock_mov.created_at = now
+
+    with patch("app.crud.movement.movement_crud.count_user_movements", return_value=1), \
+         patch("app.crud.movement.movement_crud.get_by_user", return_value=[mock_mov]):
+        resp = client.get("/movements/")
+
     assert resp.status_code == status.HTTP_200_OK
-    assert len(resp.json()) == 1
+    data = resp.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["type"] == "income"
+    assert data["items"][0]["amount"] == 1000.0
+    assert data["page"] == 1
+    assert data["page_size"] == 10
+    assert data["total_pages"] == 1
+    assert data["has_next"] is False
+    assert data["has_prev"] is False
+
+
+def test_list_movements_pagination(client):
+    from app.api.deps import get_current_user
+    from app.model.user import User
+
+    client.app.dependency_overrides[get_current_user] = lambda: User(
+        id=1, email="test@test.com", username="test", pwd_hash="xxx"
+    )
+
+    now = datetime.now()
+    mock_movements = []
+    for i in range(6):
+        m = MagicMock()
+        m.id = i + 1
+        m.user_id = 1
+        m.movement_category_id = 1
+        m.type = "expense"
+        m.amount = float(i + 1)
+        m.description = None
+        m.created_at = now
+        mock_movements.append(m)
+
+    page_size = 5
+
+    with patch("app.crud.movement.movement_crud.count_user_movements", return_value=6), \
+         patch("app.crud.movement.movement_crud.get_by_user", return_value=mock_movements[:5]):
+        page1 = client.get(f"/movements/?page=1&page_size={page_size}")
+        assert page1.status_code == status.HTTP_200_OK
+        d1 = page1.json()
+        assert d1["total"] == 6
+        assert len(d1["items"]) == 5
+        assert d1["page"] == 1
+        assert d1["page_size"] == page_size
+        assert d1["total_pages"] == 2
+        assert d1["has_next"] is True
+        assert d1["has_prev"] is False
+
+    with patch("app.crud.movement.movement_crud.count_user_movements", return_value=6), \
+         patch("app.crud.movement.movement_crud.get_by_user", return_value=mock_movements[5:]):
+        page2 = client.get(f"/movements/?page=2&page_size={page_size}")
+        assert page2.status_code == status.HTTP_200_OK
+        d2 = page2.json()
+        assert d2["total"] == 6
+        assert len(d2["items"]) == 1
+        assert d2["page"] == 2
+        assert d2["page_size"] == page_size
+        assert d2["total_pages"] == 2
+        assert d2["has_next"] is False
+        assert d2["has_prev"] is True
 
 
 def test_get_movement(client, auth_header):
