@@ -25,33 +25,46 @@ jobs:
           git diff origin/${{ github.event.pull_request.base.ref }}...HEAD > /tmp/pr_diff.txt
 
           python3 -c "
-          import os, json, urllib.request
+import os, json, urllib.request, time
 
-          diff = open('/tmp/pr_diff.txt').read()
-          api_key = os.environ['GEMINI_API_KEY']
-          pr_number = os.environ['PR_NUMBER']
-          
-          if len(diff) < 50:
-              print('Diff too small, skipping review')
-              exit(0)
-          
-          url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}'
-          payload = {
-              'contents': [{
-                  'parts': [{'text': f'Review this pull request diff. Check for bugs, code quality issues, security problems, and suggest improvements. Be concise.\n\n{diff[:30000]}'}]
-              }]
-          }
-          
-          req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
-          resp = json.loads(urllib.request.urlopen(req).read())
-          review = resp['candidates'][0]['content']['parts'][0]['text']
-          
-          comment_url = f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{pr_number}/comments'
-          comment_payload = json.dumps({'body': f'## AI Code Review\n\n{review}'}).encode()
-          comment_req = urllib.request.Request(comment_url, data=comment_payload, headers={
-              'Authorization': f'Bearer {os.environ[\"GH_TOKEN\"]}',
-              'Content-Type': 'application/json'
-          })
-          urllib.request.urlopen(comment_req)
-          print('Review posted successfully')
-          "
+diff = open('/tmp/pr_diff.txt').read()
+api_key = os.environ['GEMINI_API_KEY']
+
+if len(diff) < 50:
+    print('Diff too small, skipping review')
+    exit(0)
+
+url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={api_key}'
+payload = {
+    'contents': [{
+        'parts': [{'text': f'Review this pull request diff. Check for bugs, code quality issues, security problems, and suggest improvements. Be concise.\n\n{diff[:30000]}'}]
+    }]
+}
+
+data = json.dumps(payload).encode()
+req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+
+for attempt in range(5):
+    try:
+        resp = json.loads(urllib.request.urlopen(req).read())
+        break
+    except urllib.error.HTTPError as e:
+        if e.code == 429 and attempt < 4:
+            wait = 2 ** attempt
+            print(f'Rate limited, retrying in {wait}s...')
+            time.sleep(wait)
+        else:
+            print(f'Gemini API error: {e.code} {e.reason}')
+            exit(1)
+
+review = resp['candidates'][0]['content']['parts'][0]['text']
+pr_number = os.environ['PR_NUMBER']
+comment_url = f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{pr_number}/comments'
+comment_payload = json.dumps({'body': f'## AI Code Review\n\n{review}'}).encode()
+comment_req = urllib.request.Request(comment_url, data=comment_payload, headers={
+    'Authorization': f'Bearer {os.environ[\"GH_TOKEN\"]}',
+    'Content-Type': 'application/json'
+})
+urllib.request.urlopen(comment_req)
+print('Review posted successfully')
+"
