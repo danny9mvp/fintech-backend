@@ -78,5 +78,6 @@ alembic upgrade head
 
 ## Gotchas
 
-- No lint, no typecheck, no CI configured.
+- Lint: `ruff check app/ tests/`
+- CI: GitHub Actions workflow in `.github/workflows/ci.yml`
 - `.env` file with `SECRET_KEY` must exist in production.
