@@ -38,14 +38,19 @@ for attempt in range(5):
         review = resp["choices"][0]["message"]["content"]
         break
     except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"API error: {e.code} {e.reason} — {body[:500]}")
         if e.code == 429 and attempt < 4:
             wait = min(30, 2 ** attempt * 5)
             print(f"Rate limited, retrying in {wait}s...")
             time.sleep(wait)
         else:
-            print(f"API error: {e.code} {e.reason}")
             review = "_Automated review skipped: AI API unavailable._"
             break
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        review = "_Automated review skipped: unexpected error._"
+        break
 
 comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
 comment_payload = json.dumps({"body": f"## AI Code Review\n\n{review}"}).encode()
