@@ -47,24 +47,24 @@ jobs:
           for attempt in range(5):
               try:
                   resp = json.loads(urllib.request.urlopen(req).read())
+                  review = resp['candidates'][0]['content']['parts'][0]['text']
                   break
               except urllib.error.HTTPError as e:
                   if e.code == 429 and attempt < 4:
-                      wait = 2 ** attempt
+                      wait = min(30, 2 ** attempt * 5)
                       print(f'Rate limited, retrying in {wait}s...')
                       time.sleep(wait)
                   else:
                       print(f'Gemini API error: {e.code} {e.reason}')
-                      exit(1)
-          
-          review = resp['candidates'][0]['content']['parts'][0]['text']
-          pr_number = os.environ['PR_NUMBER']
-          comment_url = f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{pr_number}/comments'
-          comment_payload = json.dumps({'body': f'## AI Code Review\n\n{review}'}).encode()
-          comment_req = urllib.request.Request(comment_url, data=comment_payload, headers={
-              'Authorization': f'Bearer {os.environ[\"GH_TOKEN\"]}',
-              'Content-Type': 'application/json'
-          })
-          urllib.request.urlopen(comment_req)
-          print('Review posted successfully')
-          "
+                      review = '_Automated review skipped: AI API rate limited. Merge manually after reviewing._'
+                      break
+                    pr_number = os.environ['PR_NUMBER']
+                    comment_url = f'https://api.github.com/repos/{os.environ[\"GITHUB_REPOSITORY\"]}/issues/{pr_number}/comments'
+                    comment_payload = json.dumps({'body': f'## AI Code Review\n\n{review}'}).encode()
+                    comment_req = urllib.request.Request(comment_url, data=comment_payload, headers={
+                        'Authorization': f'Bearer {os.environ[\"GH_TOKEN\"]}',
+                        'Content-Type': 'application/json'
+                    })
+                    urllib.request.urlopen(comment_req)
+                    print('Review posted successfully')
+                    "
