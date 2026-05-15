@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy.orm import Session, joinedload, load_only, contains_eager
+from sqlalchemy.orm import Session, load_only, contains_eager
 
 from app.crud.base import CRUDBase
 from app.model.movement import Movement
