@@ -1,10 +1,13 @@
 import os, json, urllib.request, time
 
 diff_path = os.environ.get("DIFF_PATH", "/tmp/pr_diff.txt")
-api_key = os.environ["GEMINI_API_KEY"]
+api_key = os.environ["API_KEY"]
 pr_number = os.environ["PR_NUMBER"]
 token = os.environ["GH_TOKEN"]
 repo = os.environ["GITHUB_REPOSITORY"]
+
+api_url = os.environ.get("API_URL", "https://api.deepseek.com/v1/chat/completions")
+model = os.environ.get("MODEL", "deepseek-chat")
 
 with open(diff_path) as f:
     diff = f.read()
@@ -13,21 +16,26 @@ if len(diff) < 50:
     print("Diff too small, skipping review")
     exit(0)
 
-url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={api_key}"
 payload = {
-    "contents": [{
-        "parts": [{"text": f"Review this pull request diff. Check for bugs, code quality issues, security problems, and suggest improvements. Be concise.\n\n{diff[:30000]}"}]
-    }]
+    "model": model,
+    "messages": [
+        {"role": "system", "content": "You are a senior code reviewer. Review pull request diffs for bugs, security issues, and code quality problems. Be concise."},
+        {"role": "user", "content": f"Review this pull request diff:\n\n{diff[:30000]}"}
+    ],
+    "temperature": 0.3
 }
 
 data = json.dumps(payload).encode()
-req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+req = urllib.request.Request(api_url, data=data, headers={
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+})
 
 review = None
 for attempt in range(5):
     try:
         resp = json.loads(urllib.request.urlopen(req).read())
-        review = resp["candidates"][0]["content"]["parts"][0]["text"]
+        review = resp["choices"][0]["message"]["content"]
         break
     except urllib.error.HTTPError as e:
         if e.code == 429 and attempt < 4:
@@ -35,8 +43,8 @@ for attempt in range(5):
             print(f"Rate limited, retrying in {wait}s...")
             time.sleep(wait)
         else:
-            print(f"Gemini API error: {e.code} {e.reason}")
-            review = "_Automated review skipped: AI API rate limited._"
+            print(f"API error: {e.code} {e.reason}")
+            review = "_Automated review skipped: AI API unavailable._"
             break
 
 comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
