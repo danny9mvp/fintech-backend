@@ -3,13 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.crud.movement_category import category_crud
 from app.model.user import User
-from app.schemas.movement_category import (
-    CategoryCreate,
-    CategoryResponse,
-    CategoryUpdate,
-)
+from app.schemas.movement_category import CategoryCreate, CategoryResponse, CategoryUpdate
+from app.service.category_service import CategoryService
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -21,7 +17,8 @@ def list_categories(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return category_crud.get_by_user(db, user_id=current_user.id, offset=offset, limit=limit)
+    service = CategoryService(db, current_user)
+    return service.list(offset=offset, limit=limit)
 
 
 @router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
@@ -30,7 +27,8 @@ def create_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return category_crud.create(db, user_id=current_user.id, **body.model_dump())
+    service = CategoryService(db, current_user)
+    return service.create(body)
 
 
 @router.get("/{category_id}", response_model=CategoryResponse)
@@ -39,8 +37,9 @@ def get_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    category = category_crud.get(db, category_id)
-    if not category or category.user_id != current_user.id:
+    service = CategoryService(db, current_user)
+    category = service.get(category_id)
+    if not category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return category
 
@@ -52,10 +51,11 @@ def update_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    category = category_crud.get(db, category_id)
-    if not category or category.user_id != current_user.id:
+    service = CategoryService(db, current_user)
+    category = service.update(category_id, body)
+    if not category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    return category_crud.update(db, category, **body.model_dump())
+    return category
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -64,7 +64,6 @@ def delete_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    category = category_crud.get(db, category_id)
-    if not category or category.user_id != current_user.id:
+    service = CategoryService(db, current_user)
+    if not service.delete(category_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    category_crud.remove(db, category_id)

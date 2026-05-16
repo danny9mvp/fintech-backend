@@ -52,7 +52,7 @@ def test_login_ok(client):
     mock_user = _make_mock_user(email="bob@example.com")
 
     with patch("app.crud.user.user_crud.get_by_email", return_value=mock_user), \
-         patch("app.api.auth_controller.verify_password", return_value=True):
+         patch("app.service.auth_service.verify_password", return_value=True):
         resp = client.post(
             "/auth/login",
             json={"email": "bob@example.com", "password": "secret456"},
@@ -66,7 +66,7 @@ def test_login_wrong_password(client):
     mock_user = _make_mock_user(email="bob@example.com")
 
     with patch("app.crud.user.user_crud.get_by_email", return_value=mock_user), \
-         patch("app.api.auth_controller.verify_password", return_value=False):
+         patch("app.service.auth_service.verify_password", return_value=False):
         resp = client.post(
             "/auth/login",
             json={"email": "bob@example.com", "password": "wrong"},

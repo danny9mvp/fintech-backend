@@ -1,15 +1,12 @@
-from math import ceil
-
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.crud.movement import movement_crud
-from app.crud.movement_category import category_crud
 from app.model.user import User
 from app.schemas.movement import BalanceResponse, MovementCreate, MovementResponse, MovementUpdate
 from app.schemas.paginated import PaginatedResponse
+from app.service.movement_service import MovementService
 
 router = APIRouter(prefix="/movements", tags=["movements"])
 
@@ -20,55 +17,36 @@ router = APIRouter(prefix="/movements", tags=["movements"])
     response_model_exclude_none=True,
 )
 def list_movements(
-        page: int = Query(1, ge=1, description="Page number"),
-        page_size: int = Query(10, ge=1, le=100, description="Items per page"),
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
-        movement_type: str | None = Query(None, description="Movement type"),
-        category_id: int | None = Query(None, description="Category ID"),
-        date_from: str | None = Query(None, description="Date from (YYYY-MM-DD)"),
-        date_to: str | None = Query(None, description="Date to (YYYY-MM-DD)"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    movement_type: str | None = Query(None),
+    category_id: int | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
 ):
-    offset = (page - 1) * page_size
-    user_movements_count = movement_crud.count_user_movements(db, user_id=current_user.id, movement_type=movement_type,
-                                                              category_id=category_id, date_from=date_from,
-                                                              date_to=date_to)
-    user_movements = (
-        movement_crud.get_by_user(db, user_id=current_user.id, offset=offset, limit=page_size, movement_type=movement_type,
-                                  category_id=category_id, date_from=date_from, date_to=date_to)
-        if user_movements_count > 0
-        else (
-            []
-        )
-    )
-
-    total_pages = ceil(user_movements_count / page_size)
-
-    return PaginatedResponse(
-        items=user_movements,
-        total=user_movements_count,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
-        has_next=page < total_pages,
-        has_prev=page > 1
+    service = MovementService(db, current_user)
+    return service.list(
+        page=page, page_size=page_size,
+        movement_type=movement_type, category_id=category_id,
+        date_from=date_from, date_to=date_to,
     )
 
 
 @router.post("/", response_model=MovementResponse, status_code=status.HTTP_201_CREATED)
 def create_movement(
-        body: MovementCreate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
+    body: MovementCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    category = category_crud.get(db, body.movement_category_id)
-    if not category or category.user_id != current_user.id:
+    service = MovementService(db, current_user)
+    movement = service.create(body)
+    if not movement:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Category not found"
         )
-    return movement_crud.create(
-        db, user_id=current_user.id, **body.model_dump()
-    )
+    return movement
 
 
 @router.get("/balance", response_model=BalanceResponse)
@@ -76,41 +54,43 @@ def get_balance(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return movement_crud.get_balance(db, user_id=current_user.id)
+    service = MovementService(db, current_user)
+    return service.get_balance()
 
 
 @router.get("/{movement_id}", response_model=MovementResponse)
 def get_movement(
-        movement_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
+    movement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    movement = movement_crud.get(db, movement_id)
-    if not movement or movement.user_id != current_user.id:
+    service = MovementService(db, current_user)
+    movement = service.get(movement_id)
+    if not movement:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return movement
 
 
 @router.patch("/{movement_id}", response_model=MovementResponse)
 def update_movement(
-        movement_id: int,
-        body: MovementUpdate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
+    movement_id: int,
+    body: MovementUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    movement = movement_crud.get(db, movement_id)
-    if not movement or movement.user_id != current_user.id:
+    service = MovementService(db, current_user)
+    movement = service.update(movement_id, body)
+    if not movement:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    return movement_crud.update(db, movement, **body.model_dump())
+    return movement
 
 
 @router.delete("/{movement_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_movement(
-        movement_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user),
+    movement_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    movement = movement_crud.get(db, movement_id)
-    if not movement or movement.user_id != current_user.id:
+    service = MovementService(db, current_user)
+    if not service.delete(movement_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    movement_crud.remove(db, movement_id)
