@@ -13,7 +13,12 @@ def _override_current_user(client, user_id=1):
         email="test@example.com",
         username="testuser",
         pwd_hash="xxx",
+        firstname="Test",
+        lastname="User",
+        is_active=True,
         created_at=datetime.now(timezone.utc),
+        last_updated_at=datetime.now(timezone.utc),
+        last_login_at=None,
     )
 
 
@@ -25,8 +30,13 @@ def test_get_me(client):
     data = resp.json()
     assert data["email"] == "test@example.com"
     assert data["username"] == "testuser"
+    assert data["firstname"] == "Test"
+    assert data["lastname"] == "User"
     assert "id" in data
-    assert "created_at" in data
+    assert "created_at" not in data
+    assert "is_active" not in data
+    assert "last_updated_at" not in data
+    assert "last_login_at" not in data
 
 
 def test_get_me_unauthorized(client):
@@ -40,6 +50,13 @@ def _make_mock_user(id=1, email="test@example.com", username="testuser", pwd_has
     u.email = email
     u.username = username
     u.pwd_hash = pwd_hash
+    u.firstname = "Test"
+    u.lastname = "User"
+    u.middlename = None
+    u.second_lastname = None
+    u.is_active = True
+    u.last_updated_at = datetime.now(timezone.utc)
+    u.last_login_at = None
     return u
 
 
