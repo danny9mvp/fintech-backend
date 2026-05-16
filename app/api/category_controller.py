@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.model.user import User
+from app.schemas.budget_warning import BudgetWarningResponse
 from app.schemas.movement_category import CategoryCreate, CategoryResponse, CategoryUpdate
 from app.service.category_service import CategoryService
 
@@ -29,6 +30,19 @@ def create_category(
 ):
     service = CategoryService(db, current_user)
     return service.create(body)
+
+
+@router.get("/{category_id}/check-budget", response_model=BudgetWarningResponse)
+def get_budget_warning(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = CategoryService(db, current_user)
+    warning = service.get_budget_warning(category_id)
+    if not warning:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return warning
 
 
 @router.get("/{category_id}", response_model=CategoryResponse)

@@ -108,3 +108,33 @@ def test_category_ownership(client):
         resp = client.get("/categories/1")
 
     assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_budget_warning_single(client):
+    _override_current_user(client)
+
+    mock_cat = _make_mock_category(id=1, name="Food", budget=1000.0)
+
+    with patch("app.crud.movement_category.category_crud.get", return_value=mock_cat), \
+         patch("app.crud.movement.movement_crud.get_category_expense", return_value=800.0):
+        resp = client.get("/categories/1/check-budget")
+
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["category_name"] == "Food"
+    assert data["warning_level"] == "warning"
+    assert data["usage_percentage"] == 80.0
+    assert data["total_expense"] == 800.0
+    assert data["budget"] == 1000.0
+
+
+def test_budget_warning_single_not_found(client):
+    _override_current_user(client)
+
+    with patch("app.crud.movement_category.category_crud.get", return_value=None):
+        resp = client.get("/categories/999/check-budget")
+
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+

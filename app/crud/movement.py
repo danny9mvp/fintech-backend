@@ -69,7 +69,20 @@ class CRUDMovement(CRUDBase):
             .all()
         )
         income = sum(amount for t, amount in totals if t == "INCOME")
-        expense = sum(amount for t, amount in totals if t == "OUTCOME")
+        expense = sum(amount for t, amount in totals if t == "EXPENSE")
         return {"total_income": income, "total_expense": expense, "balance": income - expense}
+
+    def get_category_expense(self, db: Session, category_id: int, user_id: int) -> float:
+        total = (
+            db.query(func.sum(Movement.amount))
+            .filter(
+                Movement.user_id == user_id,
+                Movement.movement_category_id == category_id,
+                Movement.type == "EXPENSE",
+            )
+            .scalar()
+        )
+        return total or 0.0
+
 
 movement_crud = CRUDMovement()
