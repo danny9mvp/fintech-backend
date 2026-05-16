@@ -3,6 +3,12 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class BalanceResponse(BaseModel):
+    total_income: float
+    total_expense: float
+    balance: float
+
+
 class MovementBase(BaseModel):
     type: str
     amount: float
