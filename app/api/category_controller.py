@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.model.user import User
-from app.schemas.budget_warning import BudgetWarningResponse
+from app.schemas.budget_warning import BudgetSummaryItem, BudgetWarningResponse
 from app.schemas.movement_category import CategoryCreate, CategoryResponse, CategoryUpdate
 from app.service.category_service import CategoryService
 
@@ -30,6 +30,15 @@ def create_category(
 ):
     service = CategoryService(db, current_user)
     return service.create(body)
+
+
+@router.get("/budget-summary", response_model=list[BudgetSummaryItem])
+def get_budget_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = CategoryService(db, current_user)
+    return service.get_budget_summary()
 
 
 @router.get("/{category_id}/check-budget", response_model=BudgetWarningResponse)

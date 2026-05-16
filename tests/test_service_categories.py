@@ -2,7 +2,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from app.service.category_service import CategoryService
-from app.schemas.budget_warning import BudgetWarningResponse
+from app.schemas.budget_warning import BudgetSummaryItem, BudgetWarningResponse
 from app.schemas.movement_category import CategoryResponse
 
 
@@ -175,6 +175,68 @@ class TestCategoryServiceDelete:
 
         assert result is False
         crud.remove.assert_not_called()
+
+
+class TestCategoryServiceBudgetSummary:
+    def test_summary_returns_list_with_correct_fields(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+        cat1 = _mock_category(id=1, name="Food", budget=1000.0)
+        cat2 = _mock_category(id=2, name="Rent", budget=500.0)
+
+        with patch("app.service.category_service.category_crud") as c_crud, \
+             patch("app.service.category_service.movement_crud") as m_crud:
+            c_crud.get_by_user.return_value = [cat1, cat2]
+            m_crud.get_category_expense.side_effect = [100.0, 450.0]
+            result = CategoryService(db, user).get_budget_summary()
+
+        assert len(result) == 2
+        assert isinstance(result[0], BudgetSummaryItem)
+        assert result[0].category_id == 1
+        assert result[0].category_name == "Food"
+        assert result[0].budget == 1000.0
+        assert result[0].total_expense == 100.0
+        assert result[0].usage_percentage == 10.0
+        assert result[1].usage_percentage == 90.0
+
+    def test_summary_empty_list(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+
+        with patch("app.service.category_service.category_crud") as c_crud:
+            c_crud.get_by_user.return_value = []
+            result = CategoryService(db, user).get_budget_summary()
+
+        assert result == []
+
+    def test_summary_no_budget_category(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+        cat = _mock_category(id=1, name="Food", budget=None)
+
+        with patch("app.service.category_service.category_crud") as c_crud:
+            c_crud.get_by_user.return_value = [cat]
+            result = CategoryService(db, user).get_budget_summary()
+
+        assert len(result) == 1
+        assert result[0].usage_percentage is None
+        assert result[0].total_expense == 0.0
+        assert result[0].budget is None
+
+    def test_summary_zero_budget_category(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+        cat = _mock_category(id=1, name="Food", budget=0.0)
+
+        with patch("app.service.category_service.category_crud") as c_crud:
+            c_crud.get_by_user.return_value = [cat]
+            result = CategoryService(db, user).get_budget_summary()
+
+        assert result[0].usage_percentage is None
 
 
 class TestCategoryServiceBudgetWarning:
