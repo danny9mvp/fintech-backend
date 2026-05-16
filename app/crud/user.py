@@ -17,7 +17,7 @@ class CRUDUser(CRUDBase):
         return super().create(db, **kwargs)
 
     def update(self, db: Session, db_obj, **kwargs):
-        if kwargs["password"]:
+        if kwargs.get("password"):
             kwargs["pwd_hash"] = hash_password(kwargs.pop("password"))
         return super().update(db, db_obj, **kwargs)
 

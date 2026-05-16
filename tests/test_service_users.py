@@ -14,7 +14,14 @@ class TestUserServiceUpdate:
         mock_updated.id = 1
         mock_updated.email = "alice@example.com"
         mock_updated.username = "alice_updated"
+        mock_updated.firstname = "Alice"
+        mock_updated.lastname = "Updated"
+        mock_updated.middlename = None
+        mock_updated.second_lastname = None
+        mock_updated.is_active = True
         mock_updated.created_at = datetime.now()
+        mock_updated.last_updated_at = datetime.now()
+        mock_updated.last_login_at = None
         body = MagicMock()
         body.model_dump.return_value = {"username": "alice_updated"}
 
@@ -36,7 +43,14 @@ class TestUserServiceUpdate:
         mock_updated.id = 1
         mock_updated.email = "alice@example.com"
         mock_updated.username = "alice"
+        mock_updated.firstname = "Alice"
+        mock_updated.lastname = "User"
+        mock_updated.middlename = None
+        mock_updated.second_lastname = None
+        mock_updated.is_active = True
         mock_updated.created_at = datetime.now()
+        mock_updated.last_updated_at = datetime.now()
+        mock_updated.last_login_at = None
         body = MagicMock()
         body.model_dump.return_value = {"password": "new_secret"}
 
