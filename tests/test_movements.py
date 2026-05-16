@@ -286,6 +286,101 @@ def test_movement_invalid_category(client, auth_header):
     assert resp.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_get_balance_returns_zero_when_no_movements(client):
+    _override_current_user_mock(client)
+    with patch("app.crud.movement.movement_crud.get_balance", return_value={
+        "total_income": 0.0, "total_expense": 0.0, "balance": 0.0,
+    }):
+        resp = client.get("/movements/balance")
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total_income"] == 0.0
+    assert data["total_expense"] == 0.0
+    assert data["balance"] == 0.0
+
+
+def test_get_balance_returns_correct_totals(client):
+    _override_current_user_mock(client)
+    with patch("app.crud.movement.movement_crud.get_balance", return_value={
+        "total_income": 700.0, "total_expense": 150.0, "balance": 550.0,
+    }):
+        resp = client.get("/movements/balance")
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total_income"] == 700.0
+    assert data["total_expense"] == 150.0
+    assert data["balance"] == 550.0
+
+
+def test_get_balance_returns_only_income(client):
+    _override_current_user_mock(client)
+    with patch("app.crud.movement.movement_crud.get_balance", return_value={
+        "total_income": 1000.0, "total_expense": 0.0, "balance": 1000.0,
+    }):
+        resp = client.get("/movements/balance")
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total_income"] == 1000.0
+    assert data["total_expense"] == 0.0
+    assert data["balance"] == 1000.0
+
+
+def test_get_balance_returns_negative_when_expenses_exceed_income(client):
+    _override_current_user_mock(client)
+    with patch("app.crud.movement.movement_crud.get_balance", return_value={
+        "total_income": 0.0, "total_expense": 300.0, "balance": -300.0,
+    }):
+        resp = client.get("/movements/balance")
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total_income"] == 0.0
+    assert data["total_expense"] == 300.0
+    assert data["balance"] == -300.0
+
+
+def test_get_balance_unauthorized(client):
+    resp = client.get("/movements/balance")
+    assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_get_balance_scoped_to_user(client, auth_header):
+    cat_id = _create_category(client, auth_header)
+    client.post(
+        "/movements/",
+        json={"type": "income", "amount": 999.0, "movement_category_id": cat_id},
+        headers=auth_header,
+    )
+    client.post(
+        "/auth/register",
+        json={"email": "other@test.com", "password": "secret", "username": "other"},
+    )
+    login = client.post(
+        "/auth/login",
+        json={"email": "other@test.com", "password": "secret"},
+    )
+    other_header = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    resp = client.get("/movements/balance", headers=other_header)
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total_income"] == 0.0
+    assert data["total_expense"] == 0.0
+    assert data["balance"] == 0.0
+
+
+def test_get_balance_integration(client, auth_header):
+    _override_current_user_mock(client)
+    with patch("app.crud.movement.movement_crud.get_balance", return_value={
+        "total_income": 1500.0, "total_expense": 500.0, "balance": 1000.0,
+    }):
+        resp = client.get("/movements/balance")
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["total_income"] == 1500.0
+    assert data["total_expense"] == 500.0
+    assert data["balance"] == 1000.0
+
+
 def test_movement_ownership(client, auth_header):
     cat_id = _create_category(client, auth_header)
     create = client.post(
