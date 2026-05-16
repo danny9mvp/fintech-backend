@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, verify_password
@@ -14,7 +16,11 @@ class AuthService:
         if existing:
             return None
         user = user_crud.create(
-            self.db, email=body.email, password=body.password, username=body.username
+            self.db, email=body.email, password=body.password, username=body.username,
+            firstname=body.firstname or "",
+            lastname=body.lastname or "",
+            middlename=body.middlename,
+            second_lastname=body.second_lastname,
         )
         return create_access_token({"sub": str(user.id)})
 
@@ -22,4 +28,6 @@ class AuthService:
         user = user_crud.get_by_email(self.db, body.email)
         if not user or not verify_password(body.password, user.pwd_hash):
             return None
+        user.last_login_at = datetime.now(timezone.utc)
+        self.db.commit()
         return create_access_token({"sub": str(user.id)})

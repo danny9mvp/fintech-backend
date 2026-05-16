@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from fastapi import status
@@ -9,6 +10,13 @@ def _make_mock_user(id=1, email="test@test.com", username="test", pwd_hash="hash
     u.email = email
     u.username = username
     u.pwd_hash = pwd_hash
+    u.firstname = "Test"
+    u.lastname = "User"
+    u.middlename = None
+    u.second_lastname = None
+    u.is_active = True
+    u.last_updated_at = datetime.now()
+    u.last_login_at = None
     return u
 
 

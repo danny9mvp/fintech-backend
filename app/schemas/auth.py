@@ -15,3 +15,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     username: str
+    firstname: str | None = None
+    middlename: str | None = None
+    lastname: str | None = None
+    second_lastname: str | None = None
