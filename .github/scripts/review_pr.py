@@ -1,7 +1,10 @@
 import os, json, urllib.request, time
 
 diff_path = os.environ.get("DIFF_PATH", "/tmp/pr_diff.txt")
-api_key = os.environ["API_KEY"]
+api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+if not api_key:
+    print("ERROR: API_KEY env var is empty. Set DEEPSEEK_API_KEY secret in repo settings.")
+    exit(1)
 pr_number = os.environ["PR_NUMBER"]
 token = os.environ["GH_TOKEN"]
 repo = os.environ["GITHUB_REPOSITORY"]
