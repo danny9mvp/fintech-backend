@@ -21,5 +21,5 @@ jobs:
           pip install -r requirements.txt
       - name: Lint with ruff
         run: ruff check app/ tests/ --
-      - name: Run tests
-        run: python -m pytest tests/ -v
+      - name: Run tests with coverage
+        run: python -m pytest tests/ -v --cov=app --cov-fail-under=80 --cov-report=term-missing
