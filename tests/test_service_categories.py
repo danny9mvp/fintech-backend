@@ -2,6 +2,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from app.service.category_service import CategoryService
+from app.schemas.budget_warning import BudgetWarningResponse
 from app.schemas.movement_category import CategoryResponse
 
 
@@ -174,3 +175,93 @@ class TestCategoryServiceDelete:
 
         assert result is False
         crud.remove.assert_not_called()
+
+
+class TestCategoryServiceBudgetWarning:
+    def test_single_warning_none_level(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+        mock_cat = _mock_category(id=1, name="Food", budget=1000.0)
+
+        with patch("app.service.category_service.category_crud") as c_crud, \
+             patch("app.service.category_service.movement_crud") as m_crud:
+            c_crud.get.return_value = mock_cat
+            m_crud.get_category_expense.return_value = 100.0
+            result = CategoryService(db, user).get_budget_warning(1)
+
+        assert isinstance(result, BudgetWarningResponse)
+        assert result.warning_level == "none"
+        assert result.usage_percentage == 10.0
+        assert result.total_expense == 100.0
+        assert result.budget == 1000.0
+        assert result.category_name == "Food"
+
+    def test_single_warning_warning_level(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+        mock_cat = _mock_category(id=1, name="Food", budget=1000.0)
+
+        with patch("app.service.category_service.category_crud") as c_crud, \
+             patch("app.service.category_service.movement_crud") as m_crud:
+            c_crud.get.return_value = mock_cat
+            m_crud.get_category_expense.return_value = 800.0
+            result = CategoryService(db, user).get_budget_warning(1)
+
+        assert result.warning_level == "warning"
+
+    def test_single_warning_exceeded_level(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+        mock_cat = _mock_category(id=1, name="Food", budget=1000.0)
+
+        with patch("app.service.category_service.category_crud") as c_crud, \
+             patch("app.service.category_service.movement_crud") as m_crud:
+            c_crud.get.return_value = mock_cat
+            m_crud.get_category_expense.return_value = 1200.0
+            result = CategoryService(db, user).get_budget_warning(1)
+
+        assert result.warning_level == "exceeded"
+        assert result.usage_percentage == 120.0
+
+    def test_single_no_budget(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+        mock_cat = _mock_category(id=1, name="Food", budget=None)
+
+        with patch("app.service.category_service.category_crud") as c_crud:
+            c_crud.get.return_value = mock_cat
+            result = CategoryService(db, user).get_budget_warning(1)
+
+        assert result.warning_level == "no_budget"
+        assert result.usage_percentage is None
+        assert result.total_expense == 0.0
+
+    def test_single_zero_budget(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 1
+        mock_cat = _mock_category(id=1, name="Food", budget=0.0)
+
+        with patch("app.service.category_service.category_crud") as c_crud:
+            c_crud.get.return_value = mock_cat
+            result = CategoryService(db, user).get_budget_warning(1)
+
+        assert result.warning_level == "no_budget"
+
+    def test_single_not_owned(self):
+        db = MagicMock()
+        user = MagicMock()
+        user.id = 2
+        mock_cat = _mock_category(id=1, user_id=1)
+
+        with patch("app.service.category_service.category_crud") as c_crud:
+            c_crud.get.return_value = mock_cat
+            result = CategoryService(db, user).get_budget_warning(1)
+
+        assert result is None
+
+
