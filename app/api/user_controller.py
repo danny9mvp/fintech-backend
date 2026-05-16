@@ -12,7 +12,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+    return UserResponse.model_validate(current_user)
 
 
 @router.patch("/me", status_code=status.HTTP_204_NO_CONTENT)

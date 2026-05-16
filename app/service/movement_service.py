@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.crud.movement import movement_crud
 from app.crud.movement_category import category_crud
 from app.model.user import User
-from app.schemas.movement import MovementCreate, MovementUpdate
+from app.schemas.movement import MovementCreate, MovementResponse, MovementUpdate
 from app.schemas.paginated import PaginatedResponse
 
 
@@ -13,6 +13,12 @@ class MovementService:
     def __init__(self, db: Session, current_user: User):
         self.db = db
         self.user = current_user
+
+    def _get_entity(self, movement_id: int):
+        obj = movement_crud.get(self.db, movement_id)
+        if not obj or obj.user_id != self.user.id:
+            return None
+        return obj
 
     def list(
         self,
@@ -40,7 +46,7 @@ class MovementService:
         )
         total_pages = ceil(total / page_size) if total > 0 else 0
         return PaginatedResponse(
-            items=items,
+            items=[MovementResponse.model_validate(m) for m in items],
             total=total,
             page=page,
             page_size=page_size,
@@ -53,25 +59,25 @@ class MovementService:
         category = category_crud.get(self.db, body.movement_category_id)
         if not category or category.user_id != self.user.id:
             return None
-        return movement_crud.create(self.db, user_id=self.user.id, **body.model_dump())
+        obj = movement_crud.create(self.db, user_id=self.user.id, **body.model_dump())
+        return MovementResponse.model_validate(obj)
 
     def get_balance(self):
         return movement_crud.get_balance(self.db, user_id=self.user.id)
 
     def get(self, movement_id: int):
-        obj = movement_crud.get(self.db, movement_id)
-        if not obj or obj.user_id != self.user.id:
-            return None
-        return obj
+        obj = self._get_entity(movement_id)
+        return MovementResponse.model_validate(obj) if obj else None
 
     def update(self, movement_id: int, body: MovementUpdate):
-        obj = self.get(movement_id)
+        obj = self._get_entity(movement_id)
         if not obj:
             return None
-        return movement_crud.update(self.db, obj, **body.model_dump())
+        updated = movement_crud.update(self.db, obj, **body.model_dump())
+        return MovementResponse.model_validate(updated)
 
     def delete(self, movement_id: int) -> bool:
-        obj = self.get(movement_id)
+        obj = self._get_entity(movement_id)
         if not obj:
             return False
         movement_crud.remove(self.db, movement_id)
