@@ -9,12 +9,12 @@ class CRUDMovementCategory(CRUDBase):
         super().__init__(MovementCategory)
 
     def get_by_user(
-        self, db: Session, user_id: int, skip: int = 0, limit: int = 100
+        self, db: Session, user_id: int, offset: int = 0, limit: int = 100
     ):
         return (
             db.query(MovementCategory)
             .filter(MovementCategory.user_id == user_id)
-            .offset(skip)
+            .offset(offset)
             .limit(limit)
             .all()
         )
