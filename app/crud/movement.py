@@ -1,5 +1,6 @@
 from datetime import date
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, load_only, contains_eager
 
 from app.crud.base import CRUDBase
@@ -59,5 +60,16 @@ class CRUDMovement(CRUDBase):
             query = query.filter(Movement.created_at <= date_to)
 
         return query
+
+    def get_balance(self, db: Session, user_id: int) -> dict:
+        totals = (
+            db.query(Movement.type, func.sum(Movement.amount))
+            .filter(Movement.user_id == user_id)
+            .group_by(Movement.type)
+            .all()
+        )
+        income = sum(amount for t, amount in totals if t == "INCOME")
+        expense = sum(amount for t, amount in totals if t == "OUTCOME")
+        return {"total_income": income, "total_expense": expense, "balance": income - expense}
 
 movement_crud = CRUDMovement()

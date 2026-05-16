@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.crud.movement import movement_crud
 from app.crud.movement_category import category_crud
 from app.model.user import User
-from app.schemas.movement import MovementCreate, MovementResponse, MovementUpdate
+from app.schemas.movement import BalanceResponse, MovementCreate, MovementResponse, MovementUpdate
 from app.schemas.paginated import PaginatedResponse
 
 router = APIRouter(prefix="/movements", tags=["movements"])
@@ -69,6 +69,14 @@ def create_movement(
     return movement_crud.create(
         db, user_id=current_user.id, **body.model_dump()
     )
+
+
+@router.get("/balance", response_model=BalanceResponse)
+def get_balance(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return movement_crud.get_balance(db, user_id=current_user.id)
 
 
 @router.get("/{movement_id}", response_model=MovementResponse)
