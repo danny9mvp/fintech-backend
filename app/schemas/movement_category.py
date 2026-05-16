@@ -19,7 +19,5 @@ class CategoryUpdate(BaseModel):
 
 class CategoryResponse(CategoryBase):
     id: int
-    user_id: int
-    created_at: datetime
 
     model_config = {"from_attributes": True}
