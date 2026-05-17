@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt as _bcrypt
@@ -28,3 +30,13 @@ def decode_access_token(token: str) -> dict | None:
         return decode(token, settings.secret_key, algorithms=[settings.algorithm])
     except Exception:
         return None
+
+
+def generate_refresh_token() -> tuple[str, str]:
+    token = secrets.token_hex(32)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    return token, token_hash
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
