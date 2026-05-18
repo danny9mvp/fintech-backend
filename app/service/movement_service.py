@@ -59,7 +59,13 @@ class MovementService:
         category = category_crud.get(self.db, body.movement_category_id)
         if not category or category.user_id != self.user.id:
             return None
-        obj = movement_crud.create(self.db, user_id=self.user.id, **body.model_dump())
+        data = body.model_dump()
+        data["type"] = data["type"].upper()
+        if data["type"] == "EXPENSE":
+            balance = movement_crud.get_balance(self.db, self.user.id)
+            if data["amount"] > balance["balance"]:
+                raise ValueError("Insufficient balance to create this expense")
+        obj = movement_crud.create(self.db, user_id=self.user.id, **data)
         return MovementResponse.model_validate(obj)
 
     def get_balance(self):
