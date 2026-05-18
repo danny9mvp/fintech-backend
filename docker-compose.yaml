@@ -8,15 +8,23 @@ services:
       POSTGRES_DB: fintech
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - fintech-net
+    restart: unless-stopped
   fintech-backend:
     build: .
     container_name: fintech-backend
     depends_on:
       - fintech-db
-    environment:
-      DATABASE_URL: postgresql://fintech:fintech@fintech-db:5432/fintech
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+    env_file:
+      - ../deploy/.env
     ports:
       - "8000:8000"
+    networks:
+      - fintech-net
+    restart: unless-stopped
+volumes:
+  pgdata:
+networks:
+  fintech-net:
+    external: true
