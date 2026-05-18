@@ -1,13 +1,13 @@
 services:
   fintech-db:
-    image: postgres:16-alpine
+    image: postgres:latest
     container_name: fintech-db
     environment:
       POSTGRES_USER: fintech
       POSTGRES_PASSWORD: fintech
       POSTGRES_DB: fintech
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     networks:
       - fintech-net
     restart: unless-stopped
@@ -16,8 +16,9 @@ services:
     container_name: fintech-backend
     depends_on:
       - fintech-db
-    env_file:
-      - ../deploy/.env
+    environment:
+      DATABASE_URL: postgresql://fintech:fintech@fintech-db:5432/fintech
+      SECRET_KEY: change-me-in-production
     ports:
       - "8000:8000"
     networks:

@@ -7,6 +7,12 @@ from app.api.user_controller import router as users_router
 
 app = FastAPI(title="Fintech Backend")
 
+
+@app.get("/ping")
+def ping():
+    return {"ping": "pong"}
+
+
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(categories_router)
