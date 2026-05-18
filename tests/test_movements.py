@@ -13,8 +13,21 @@ def _create_category(client, auth_header, name="Default", budget=100.0):
     return resp.json()["id"]
 
 
+def _create_income(client, auth_header, cat_id, amount=200.0):
+    client.post(
+        "/movements/",
+        json={
+            "type": "income",
+            "amount": amount,
+            "movement_category_id": cat_id,
+        },
+        headers=auth_header,
+    )
+
+
 def test_create_movement(client, auth_header):
     cat_id = _create_category(client, auth_header)
+    _create_income(client, auth_header, cat_id)
     resp = client.post(
         "/movements/",
         json={
@@ -27,11 +40,74 @@ def test_create_movement(client, auth_header):
     )
     assert resp.status_code == status.HTTP_201_CREATED
     data = resp.json()
-    assert data["type"] == "expense"
+    assert data["type"] == "EXPENSE"
     assert data["amount"] == 50.0
     assert data["description"] == "Lunch"
     assert data["movement_category_id"] == cat_id
     assert data["category_name"] == "Default"
+
+
+def test_create_expense_insufficient_balance(client, auth_header):
+    cat_id = _create_category(client, auth_header)
+    resp = client.post(
+        "/movements/",
+        json={
+            "type": "expense",
+            "amount": 50.0,
+            "movement_category_id": cat_id,
+        },
+        headers=auth_header,
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Insufficient balance" in resp.json()["detail"]
+
+
+def test_create_expense_with_sufficient_balance(client, auth_header):
+    cat_id = _create_category(client, auth_header)
+    client.post(
+        "/movements/",
+        json={
+            "type": "income",
+            "amount": 100.0,
+            "movement_category_id": cat_id,
+        },
+        headers=auth_header,
+    )
+    resp = client.post(
+        "/movements/",
+        json={
+            "type": "expense",
+            "amount": 50.0,
+            "movement_category_id": cat_id,
+        },
+        headers=auth_header,
+    )
+    assert resp.status_code == status.HTTP_201_CREATED
+    assert resp.json()["amount"] == 50.0
+
+
+def test_create_expense_exact_balance(client, auth_header):
+    cat_id = _create_category(client, auth_header)
+    client.post(
+        "/movements/",
+        json={
+            "type": "income",
+            "amount": 100.0,
+            "movement_category_id": cat_id,
+        },
+        headers=auth_header,
+    )
+    resp = client.post(
+        "/movements/",
+        json={
+            "type": "expense",
+            "amount": 100.0,
+            "movement_category_id": cat_id,
+        },
+        headers=auth_header,
+    )
+    assert resp.status_code == status.HTTP_201_CREATED
+    assert resp.json()["amount"] == 100.0
 
 
 def test_list_movements(client):
@@ -203,6 +279,7 @@ def test_list_movements_filter_no_results(client):
 
 def test_list_movements_category_name_in_response(client, auth_header):
     cat_id = _create_category(client, auth_header, name="Groceries")
+    _create_income(client, auth_header, cat_id)
     create = client.post(
         "/movements/",
         json={"type": "expense", "amount": 30.0, "movement_category_id": cat_id},
@@ -219,6 +296,7 @@ def test_list_movements_category_name_in_response(client, auth_header):
 
 def test_get_movement(client, auth_header):
     cat_id = _create_category(client, auth_header)
+    _create_income(client, auth_header, cat_id)
     create = client.post(
         "/movements/",
         json={
@@ -236,6 +314,7 @@ def test_get_movement(client, auth_header):
 
 def test_update_movement(client, auth_header):
     cat_id = _create_category(client, auth_header)
+    _create_income(client, auth_header, cat_id)
     create = client.post(
         "/movements/",
         json={
@@ -257,6 +336,7 @@ def test_update_movement(client, auth_header):
 
 def test_delete_movement(client, auth_header):
     cat_id = _create_category(client, auth_header)
+    _create_income(client, auth_header, cat_id)
     create = client.post(
         "/movements/",
         json={
@@ -383,6 +463,7 @@ def test_get_balance_integration(client, auth_header):
 
 def test_movement_ownership(client, auth_header):
     cat_id = _create_category(client, auth_header)
+    _create_income(client, auth_header, cat_id)
     create = client.post(
         "/movements/",
         json={

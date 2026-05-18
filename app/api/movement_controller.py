@@ -41,7 +41,10 @@ def create_movement(
     current_user: User = Depends(get_current_user),
 ):
     service = MovementService(db, current_user)
-    movement = service.create(body)
+    try:
+        movement = service.create(body)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if not movement:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Category not found"
