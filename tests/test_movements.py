@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 from fastapi import status
 
 
-def _create_category(client, auth_header, name="Default", budget=100.0):
+def _create_category(client, auth_header, name="Default", budget=0):
     resp = client.post(
         "/categories/",
         json={"name": name, "budget": budget},

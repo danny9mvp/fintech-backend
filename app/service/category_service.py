@@ -85,7 +85,21 @@ class CategoryService:
         objs = category_crud.get_by_user(self.db, user_id=self.user.id, offset=offset, limit=limit)
         return [CategoryResponse.model_validate(o) for o in objs]
 
+    def _check_budget_against_balance(self, new_budget: float, exclude_category_id: int | None = None):
+        if new_budget <= 0:
+            return
+        balance = movement_crud.get_balance(self.db, self.user.id)
+        if balance["balance"] <= 0:
+            return
+        total_budgets = category_crud.get_total_budgets(
+            self.db, self.user.id, exclude_category_id=exclude_category_id
+        )
+        if total_budgets + new_budget > balance["balance"]:
+            raise ValueError("Total category budgets would exceed your balance")
+
     def create(self, body: CategoryCreate):
+        if body.budget:
+            self._check_budget_against_balance(body.budget)
         obj = category_crud.create(self.db, user_id=self.user.id, **body.model_dump())
         return CategoryResponse.model_validate(obj)
 
@@ -97,6 +111,8 @@ class CategoryService:
         obj = self._get_entity(category_id)
         if not obj:
             return None
+        if body.budget is not None:
+            self._check_budget_against_balance(body.budget, exclude_category_id=category_id)
         updated = category_crud.update(self.db, obj, **body.model_dump())
         return CategoryResponse.model_validate(updated)
 
