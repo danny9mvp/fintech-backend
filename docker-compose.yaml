@@ -27,4 +27,4 @@ volumes:
   pgdata:
 networks:
   fintech-net:
-    external: true
+    name: fintech-net
