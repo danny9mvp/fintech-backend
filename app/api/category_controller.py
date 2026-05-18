@@ -29,7 +29,10 @@ def create_category(
     current_user: User = Depends(get_current_user),
 ):
     service = CategoryService(db, current_user)
-    return service.create(body)
+    try:
+        return service.create(body)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/budget-summary", response_model=list[BudgetSummaryItem])
@@ -75,7 +78,10 @@ def update_category(
     current_user: User = Depends(get_current_user),
 ):
     service = CategoryService(db, current_user)
-    category = service.update(category_id, body)
+    try:
+        category = service.update(category_id, body)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if not category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return category

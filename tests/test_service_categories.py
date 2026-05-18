@@ -52,10 +52,16 @@ class TestCategoryServiceCreate:
         user.id = 1
         mock_cat = _mock_category(id=10, name="New", budget=50.0)
         body = MagicMock()
+        body.budget = 50.0
         body.model_dump.return_value = {"name": "New", "budget": 50.0}
 
-        with patch("app.service.category_service.category_crud") as crud:
+        with (
+            patch("app.service.category_service.category_crud") as crud,
+            patch("app.service.category_service.movement_crud") as mvmt_crud,
+        ):
             crud.create.return_value = mock_cat
+            crud.get_total_budgets.return_value = 0.0
+            mvmt_crud.get_balance.return_value = {"total_income": 1000.0, "total_expense": 0.0, "balance": 1000.0}
             result = CategoryService(db, user).create(body)
 
         assert isinstance(result, CategoryResponse)
@@ -111,11 +117,17 @@ class TestCategoryServiceUpdate:
         mock_cat = _mock_category(id=2, name="Old", budget=100.0)
         mock_updated = _mock_category(id=2, name="Updated", budget=200.0)
         body = MagicMock()
+        body.budget = 200.0
         body.model_dump.return_value = {"name": "Updated", "budget": 200.0}
 
-        with patch("app.service.category_service.category_crud") as crud:
+        with (
+            patch("app.service.category_service.category_crud") as crud,
+            patch("app.service.category_service.movement_crud") as mvmt_crud,
+        ):
             crud.get.return_value = mock_cat
             crud.update.return_value = mock_updated
+            crud.get_total_budgets.return_value = 100.0
+            mvmt_crud.get_balance.return_value = {"total_income": 1000.0, "total_expense": 0.0, "balance": 1000.0}
             result = CategoryService(db, user).update(2, body)
 
         assert isinstance(result, CategoryResponse)
