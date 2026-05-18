@@ -1,4 +1,3 @@
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
@@ -19,16 +18,6 @@ class CRUDMovementCategory(CRUDBase):
             .limit(limit)
             .all()
         )
-
-    def get_total_budgets(
-        self, db: Session, user_id: int, exclude_category_id: int | None = None
-    ) -> float:
-        query = db.query(func.coalesce(func.sum(MovementCategory.budget), 0)).filter(
-            MovementCategory.user_id == user_id,
-        )
-        if exclude_category_id:
-            query = query.filter(MovementCategory.id != exclude_category_id)
-        return query.scalar() or 0.0
 
 
 category_crud = CRUDMovementCategory()
